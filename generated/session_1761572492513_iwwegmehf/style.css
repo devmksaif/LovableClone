@@ -1,0 +1,213 @@
+
+/* Basic Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #a8c0ff, #3f2b96); /* Clean gradient background */
+    overflow: hidden; /* Prevent scrollbar due to glow effects */
+    transition: background 0.3s ease;
+}
+
+body.dark-mode {
+    background: linear-gradient(135deg, #2c3e50, #000000);
+}
+
+.calculator-container {
+    background: rgba(255, 255, 255, 0.1); /* Glassmorphism base */
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    max-width: 350px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+body.dark-mode .calculator-container {
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.display {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    padding: 20px;
+    text-align: right;
+    margin-bottom: 20px;
+    font-size: 2.5em;
+    color: #fff;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.dark-mode .display {
+    background: rgba(0, 0, 0, 0.4);
+    color: #eee;
+    box-shadow: inset 0 2px 5px rgba(255, 255, 255, 0.1);
+}
+
+.buttons-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+button {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 15px;
+    padding: 20px;
+    font-size: 1.5em;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+body.dark-mode button {
+    background: rgba(0, 0, 0, 0.3);
+    color: #eee;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+body.dark-mode button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Specific styling for operator and equals buttons */
+button.operator {
+    background: rgba(173, 216, 230, 0.2); /* Light blue for operators */
+}
+
+body.dark-mode button.operator {
+    background: rgba(100, 149, 237, 0.3); /* Dodger blue for dark mode operators */
+}
+
+button.equals {
+    background: rgba(144, 238, 144, 0.2); /* Light green for equals */
+    grid-column: span 2; /* Make equals button wider */
+}
+
+body.dark-mode button.equals {
+    background: rgba(60, 179, 113, 0.3); /* Medium sea green for dark mode equals */
+}
+
+/* Glowing effect for active/hovered buttons - will be added with JS */
+button.glowing {
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.5);
+}
+
+body.dark-mode button.glowing {
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 0 0 30px rgba(0, 255, 255, 0.5);
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 50px;
+    height: 25px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0 5px;
+    transition: background 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+body.dark-mode .theme-toggle {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.theme-toggle.active {
+    background: rgba(0, 0, 0, 0.4);
+    justify-content: flex-end;
+}
+
+body.dark-mode .theme-toggle.active {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.theme-toggle .slider {
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.3s ease, background 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .theme-toggle .slider {
+    background: #333;
+}
+
+.theme-toggle.active .slider {
+    background: #333;
+}
+
+body.dark-mode .theme-toggle.active .slider {
+    background: #fff;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .calculator-container {
+        padding: 20px;
+    }
+
+    .display {
+        font-size: 2em;
+        padding: 15px;
+    }
+
+    button {
+        padding: 15px;
+        font-size: 1.2em;
+        border-radius: 10px;
+    }
+
+    .theme-toggle {
+        top: 10px;
+        right: 10px;
+        width: 40px;
+        height: 20px;
+    }
+
+    .theme-toggle .slider {
+        width: 16px;
+        height: 16px;
+    }
+}

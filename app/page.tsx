@@ -323,27 +323,72 @@ export default function HomePage() {
                   setCurrentPlan(data.plan);
                   console.log('📋 Real-time Plan received:', data.plan.length, 'steps');
                 } else if (data.type === 'chain_of_thought') {
-                  cotSteps.push(`Step ${data.step}: ${data.reasoning}`);
+                  const stepKey = `step-${data.step}`;
+                  const currentStepContent = cotSteps.find(s => s.startsWith(`Step ${data.step}:`));
+
+                  if (data.isPartial) {
+                    // Streaming update - append to existing step or create new one
+                    if (currentStepContent) {
+                      // Update existing step with new content
+                      const stepIndex = cotSteps.findIndex(s => s.startsWith(`Step ${data.step}:`));
+                      cotSteps[stepIndex] = `Step ${data.step}: ${data.reasoning}`;
+                    } else {
+                      // Add new step
+                      cotSteps.push(`Step ${data.step}: ${data.reasoning}`);
+                    }
+                  } else {
+                    // Final complete reasoning for this step
+                    const stepIndex = cotSteps.findIndex(s => s.startsWith(`Step ${data.step}:`));
+                    if (stepIndex >= 0) {
+                      cotSteps[stepIndex] = `Step ${data.step}: ${data.reasoning}`;
+                    } else {
+                      cotSteps.push(`Step ${data.step}: ${data.reasoning}`);
+                    }
+                  }
+
                   setChainOfThought([...cotSteps]);
 
-                  // Update assistant message with chain of thought
-                  const cotContent = cotSteps.map(step =>
-                    `🔍 **${step.split(':')[0]}**\n${step.split(':').slice(1).join(':').trim()}`
-                  ).join('\n\n');
+                  // Update assistant message with chain of thought (append to existing content)
+                  const cotContent = cotSteps.map(step => {
+                    const [stepHeader, ...reasoningParts] = step.split(': ');
+                    const reasoning = reasoningParts.join(': ');
+
+                    // Truncate long reasoning like Gemini (show first 200 chars + ...)
+                    const truncatedReasoning = reasoning.length > 200
+                      ? reasoning.substring(0, 200) + '...'
+                      : reasoning;
+
+                    return `🔍 **${stepHeader}**\n${truncatedReasoning}`;
+                  }).join('\n\n');
 
                   setMessages(prev => prev.map(msg =>
                     msg.id === assistantMessageId
-                      ? { ...msg, content: cotContent }
+                      ? {
+                          ...msg,
+                          content: msg.content.includes('Generating with real-time chain of thought')
+                            ? `Generating with real-time chain of thought...\n\n${cotContent}`
+                            : `${msg.content}\n\n${cotContent}`
+                        }
                       : msg
                   ));
 
-                  console.log('🔍 Real-time Chain of Thought - Step', data.step, ':', data.reasoning.substring(0, 100) + '...');
+                  console.log(`🔍 Real-time Chain of Thought - Step ${data.step} (${data.isPartial ? 'streaming' : 'complete'}):`, data.reasoning.substring(0, 100) + '...');
                 } else if (data.type === 'files_generated') {
                   setGeneratedFiles((prev: string[]) => [...prev, ...data.files]);
                   console.log('📁 Real-time Files Generated:', data.files.join(', '));
                 } else if (data.type === 'review') {
                   setReviewFeedback(data.feedback);
                   console.log('✅ Real-time Review:', data.feedback.substring(0, 100) + '...');
+                } else if (data.type === 'agent_message') {
+                  // Handle real-time messages from agents (new feature)
+                  const newMessage: Message = {
+                    id: `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    role: 'assistant',
+                    content: data.content,
+                    timestamp: new Date(),
+                  };
+                  setMessages(prev => [...prev, newMessage]);
+                  console.log('💬 Real-time Agent Message:', data.content.substring(0, 100) + '...');
                 }
               }
             } catch (parseError) {

@@ -6,7 +6,7 @@ import { compressContext, summarizeFileContents, estimateTokens, shouldCompress,
 import { getMemory, getProjectFolder } from './utils';
 import { llm } from './model-providers';
 import { tools, wrapToolWithLogging } from './tools';
-import { streamingPlannerAgent, streamingCodeGeneratorAgent, streamingReviewerAgent, streamingFixerAgent, shouldContinue } from './streaming-agents';
+import { streamingPlannerAgent, streamingCodeGeneratorAgent, streamingReviewerAgent, streamingFixerAgent, streamingCompletionAgent, shouldContinue } from './streaming-agents';
 import { plannerAgent, codeGeneratorAgent, reviewerAgent } from './agents';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -55,66 +55,84 @@ const AgentState = Annotation.Root({
 
 export type AgentStateType = typeof AgentState.State;
 
-// Streaming agent graph
+ 
+// Non-streaming agent graph
 export function createStreamingLovableAgentGraph(sessionId?: string, model?: string) {
-  // Update LLM if a specific model is requested
-  if (model) {
-    const { createLLM } = require('./model-providers');
-    const { llm: newLlm } = require('./model-providers');
-    // This is a bit of a hack - we need to update the module-level llm
-    // In a real refactor, we'd pass llm as a parameter
-  }
-
   const workflow = new StateGraph(AgentState)
     .addNode('planner', (state) => streamingPlannerAgent(state, sessionId, model))
     .addNode('generator', (state) => streamingCodeGeneratorAgent(state, sessionId, model))
+    .addNode('completion', (state) => streamingCompletionAgent(state, sessionId, model))
     .addNode('reviewer', (state) => streamingReviewerAgent(state, sessionId, model))
     .addNode('fix_issues', (state) => streamingFixerAgent(state, sessionId, model))
     .addEdge(START, 'planner')
     .addConditionalEdges('planner', shouldContinue, {
+      // Allow planner to route to any of the workflow nodes that
+      // shouldContinue may return. Providing a superset prevents
+      // unknown/null destination errors in the branch router.
       planner: 'planner',
       generator: 'generator',
-      end: END,
-    })
-    .addConditionalEdges('generator', shouldContinue, {
-      generator: 'generator',
+      completion: 'completion',
       reviewer: 'reviewer',
-      end: END,
-    })
-    .addConditionalEdges('reviewer', shouldContinue, {
       fix_issues: 'fix_issues',
       end: END,
     })
-    .addConditionalEdges('fix_issues', shouldContinue, {
+    .addConditionalEdges('generator', shouldContinue, {
+      // Generator may route to other nodes depending on state
+      generator: 'generator',
+      completion: 'completion',
       reviewer: 'reviewer',
+      planner: 'planner',
+      fix_issues: 'fix_issues',
+      end: END,
+    })
+    .addConditionalEdges('completion', shouldContinue, {
+      // The completion node can route to multiple places depending on shouldContinue.
+      // Provide a superset of possible destinations so the branch router never
+      // receives an unknown/null destination when shouldContinue returns one
+      // of the expected control strings.
+      reviewer: 'reviewer',
+      generator: 'generator',
+      planner: 'planner',
+      fix_issues: 'fix_issues',
+      completion: 'completion',
+      end: END,
+    })
+    .addConditionalEdges('reviewer', shouldContinue, {
+      // Reviewer may send flow back to fixer, generator, planner or end
+      fix_issues: 'fix_issues',
+      generator: 'generator',
+      planner: 'planner',
+      completion: 'completion',
+      reviewer: 'reviewer',
+      end: END,
+    })
+    .addConditionalEdges('fix_issues', shouldContinue, {
+      // Fixer can route to reviewer, generator, or end depending on results
+      reviewer: 'reviewer',
+      generator: 'generator',
+      planner: 'planner',
+      completion: 'completion',
+      fix_issues: 'fix_issues',
       end: END,
     });
 
   return workflow.compile();
 }
 
-// Non-streaming agent graph
-export function createLovableAgentGraph(sessionId?: string, model?: string) {
-  const workflow = new StateGraph(AgentState)
-    .addNode('planner', (state) => plannerAgent(state, sessionId, model))
-    .addNode('generator', (state) => codeGeneratorAgent(state, sessionId, model))
-    .addNode('reviewer', (state) => reviewerAgent(state, sessionId, model))
-    .addEdge(START, 'planner')
-    .addConditionalEdges('planner', shouldContinue, {
-      generator: 'generator',
-      end: END,
-    })
-    .addConditionalEdges('generator', shouldContinue, {
-      generator: 'generator',
-      reviewer: 'reviewer',
-      end: END,
-    })
-    .addConditionalEdges('reviewer', shouldContinue, {
-      generator: 'generator',
-      end: END,
-    });
+// Helper function to emit agent messages for real-time chat display
+function emitAgentMessages(sessionId: string | undefined, messages: BaseMessage[]) {
+  if (!sessionId || messages.length === 0) return;
 
-  return workflow.compile();
+  messages.forEach((message) => {
+    const content = message.content.toString();
+    if (content.trim()) {
+      emitEvent(sessionId, {
+        type: 'agent_message',
+        content: content,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
 }
 
 // Helper function to save generated files to disk

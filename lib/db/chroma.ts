@@ -139,8 +139,8 @@ class VectorStoreManager {
   constructor() {
     // Use LangChain's Google Generative AI embeddings - Gemini 3072 dimensions
     this.embeddings = new GoogleGenerativeAIEmbeddings({
-      modelName: EMBEDDING_MODEL,
-      apiKey: process.env.GEMINI_API_KEY,
+      modelName: 'text-embedding-004',
+      apiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
     });
   }
 

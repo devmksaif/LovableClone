@@ -6,6 +6,7 @@ import { getMemory, getProjectFolder } from './utils';
 import { llm, createLLM } from './model-providers';
 import { tools, wrapToolWithLogging } from './tools';
 import { AgentStateType } from './agent-core';
+import { searchSimilarCode, getProjectContext } from '../utils/vector-tools';
 
 // Non-streaming Planner Agent
 export async function plannerAgent(state: AgentStateType, sessionId?: string, model?: string): Promise<Partial<AgentStateType>> {
@@ -190,15 +191,6 @@ Plan: ${state.plan.join('\n')}`),
 }
 
 // Helper functions (copied from original)
-async function searchSimilarCode(query: string, projectId: string, limit: number = 3): Promise<string> {
-  // This would integrate with vector search - placeholder for now
-  return 'Vector search integration needed';
-}
-
-async function getProjectContext(projectId: string): Promise<string> {
-  // This would get project context - placeholder for now
-  return 'Project context integration needed';
-}
 
 function parseGeneratedFiles(content: string): Record<string, string> {
   const files: Record<string, string> = {};

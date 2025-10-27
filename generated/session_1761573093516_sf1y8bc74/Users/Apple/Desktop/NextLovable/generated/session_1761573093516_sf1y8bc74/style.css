@@ -1,0 +1,74 @@
+File content:
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-gradient-start: #e0e0e0;
+    --bg-gradient-end: #f0f0f0;
+    --calculator-bg: rgba(255, 255, 255, 0.1);
+    --calculator-border: rgba(255, 255, 255, 0.2);
+    --button-bg: rgba(255, 255, 255, 0.1);
+    --button-text: #333;
+    --button-shadow-1: -5px -5px 10px rgba(255, 255, 255, 0.7);
+    --button-shadow-2: 5px 5px 10px rgba(0, 0, 0, 0.1);
+    --button-hover-bg: rgba(255, 255, 255, 0.2);
+    --display-bg: rgba(255, 255, 255, 0.05);
+    --display-text: #333;
+    --text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    --key-operator-color: #f7a51b;
+    --key-equal-color: #28a745;
+}
+
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+    transition: background 0.3s ease;
+    overflow: hidden;
+}
+
+.calculator-container {
+    position: relative;
+    padding: 20px;
+    border-radius: 20px;
+    background: var(--calculator-bg);
+    border: 1px solid var(--calculator-border);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: grid;
+    grid-template-columns: repeat(4, 70px);
+    grid-gap: 15px;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.button {
+    width: 70px;
+    height: 70px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em;
+    color: var(--button-text);
+    background: var(--button-bg);
+    border-radius: 15px;
+    cursor: pointer;
+    box-shadow: var(--button-shadow-1), var(--button-shadow-2);
+    transition: all 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+}
+
+.button:hover {
+    background: var(--button-hover-bg);
+    transform: scale(1.05);
+}
+
+.button:active {
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2), inset -2px -2px 5px rgba(255, 255, 255, 0.7);
+    transform: scale(0.95);
+}

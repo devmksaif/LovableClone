@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { HumanMessage } from '@langchain/core/messages';
-import { createLovableAgentGraph, saveGeneratedFiles } from '../lib/agents/agent-core';
+import { createStreamingLovableAgentGraph, saveGeneratedFiles } from '../lib/agents/agent-core';
 
 async function main() {
   console.log('🚀 Starting Lovable-style code generation agent...\n');
@@ -9,7 +9,7 @@ async function main() {
 
   console.log(`📝 User Request: ${userRequest}\n`);
 
-  const graph = createLovableAgentGraph();
+  const graph = createStreamingLovableAgentGraph();
 
   // Run the agent
   const result = await graph.invoke({

@@ -15,7 +15,7 @@ export const getModelName = (modelId: string): string => {
 };
 
 // Initialize the LLM model with provider selection
-export function createLLM(model?: string) {
+export function createLLM(model?: string, streaming: boolean = false) {
   // If a specific model is requested, try to use it
   if (model) {
     const groqApiKey = process.env.GROQ_API_KEY;
@@ -28,8 +28,9 @@ export function createLLM(model?: string) {
       return new ChatGroq({
         apiKey: groqApiKey,
         model: actualModel,
-        temperature: 0.7,
-        maxTokens: 4096,
+        temperature: 0.4,
+        
+        streaming,
       });
     } else if (model.startsWith('gemini-') && geminiApiKey) {
       const actualModel = getModelName(model);
@@ -37,8 +38,9 @@ export function createLLM(model?: string) {
       return new ChatGoogleGenerativeAI({
         apiKey: geminiApiKey,
         model: actualModel,
-        temperature: 0.7,
-        maxOutputTokens: 4096,
+        temperature: 0.4,
+       
+        streaming,
       });
     } else if (openRouterApiKey) {
       console.log('🔄 Using OpenRouter API - Model:', model);
@@ -49,7 +51,8 @@ export function createLLM(model?: string) {
           baseURL: apiBase,
         },
         model: model,
-        temperature: 0.7,
+        temperature: 0.4,
+        streaming,
       });
     }
   }
@@ -66,6 +69,7 @@ export function createLLM(model?: string) {
       model: process.env.GROQ_MODEL ?? 'llama-3.1-8b-instant',
       temperature: 0.7,
       maxTokens: 4096,
+      streaming,
     });
   } else if (geminiApiKey) {
     console.log('🤖 Using Google Gemini API');
@@ -74,6 +78,7 @@ export function createLLM(model?: string) {
       model: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
       temperature: 0.7,
       maxOutputTokens: 4096,
+      streaming,
     });
   } else if (openRouterApiKey) {
     console.log('🔄 Using OpenRouter API');
@@ -85,6 +90,7 @@ export function createLLM(model?: string) {
       },
       model: process.env.OPENAI_MODEL ?? process.env.OPENROUTER_MODEL ?? 'openai/gpt-4o',
       temperature: 0.7,
+      streaming,
     });
   } else {
     throw new Error('No API key found. Set GROQ_API_KEY, GEMINI_API_KEY, or OPENROUTER_API_KEY/OPENAI_API_KEY');

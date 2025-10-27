@@ -18,6 +18,7 @@ import {
 } from '../utils/fileops';
 import { getMemory, getProjectFolder } from './utils';
 import { toolLogger } from '../utils/tool-logger';
+import { searchSimilarCode, getProjectContext } from '../utils/vector-tools';
 
 // File operation tools
 export const readFileTool = tool(async ({ filePath }) => {
@@ -570,6 +571,34 @@ export const executeCommandTool = tool(async ({ command, description }) => {
   }),
 });
 
+// Vector search tools
+export const searchSimilarCodeTool = tool(async ({ query, maxResults }) => {
+  const projectId = 'agent_context_project';
+  console.log(`🔍 Searching for similar code: "${query}" in project ${projectId}`);
+
+  const result = await searchSimilarCode(query, projectId, maxResults || 5);
+  return result;
+}, {
+  name: 'search_similar_code',
+  description: 'Search for similar code examples in the vector database. Use this to find relevant code patterns and implementations.',
+  schema: z.object({
+    query: z.string().describe('The code or concept to search for'),
+    maxResults: z.number().optional().describe('Maximum number of results to return (default: 5)')
+  }),
+});
+
+export const getProjectContextTool = tool(async () => {
+  const projectId = 'agent_context_project';
+  console.log(`📊 Getting project context for: ${projectId}`);
+
+  const result = await getProjectContext(projectId);
+  return result;
+}, {
+  name: 'get_project_context',
+  description: 'Get comprehensive project statistics and structure information from the vector database.',
+  schema: z.object({}),
+});
+
 // Create the tools array with all tools
 export const tools = [
   // Basic file operations
@@ -594,18 +623,43 @@ export const tools = [
   // Project tools
   getProjectStructureTool,
   executeCommandTool,
+  // Vector search tools
+  searchSimilarCodeTool,
+  getProjectContextTool,
 ];
 
 // Helper function to wrap tool execution with logging
 export function wrapToolWithLogging(toolFn: any, toolName: string) {
   return async (...args: any[]) => {
-    const callId = toolLogger.startCall(toolName, args[0] || {});
+    const input = args[0] || {};
+    const callId = toolLogger.startCall(toolName, input);
     try {
-      const result = await toolFn(...args);
+      // Support multiple tool shapes returned by `tool()` or custom wrappers.
+      // Common possibilities:
+      // - a plain function: toolFn(argsObj)
+      // - an object with .call(argsObj)
+      // - an object with .invoke(argsObj)
+      // - an object with .run(argsObj)
+      let result: any;
+
+      if (typeof toolFn === 'function') {
+        result = await toolFn(input);
+      } else if (toolFn && typeof toolFn.call === 'function') {
+        result = await toolFn.call(input);
+      } else if (toolFn && typeof toolFn.invoke === 'function') {
+        result = await toolFn.invoke(input);
+      } else if (toolFn && typeof toolFn.run === 'function') {
+        result = await toolFn.run(input);
+      } else if (toolFn && typeof toolFn.execute === 'function') {
+        result = await toolFn.execute(input);
+      } else {
+        throw new Error('Tool is not callable');
+      }
+
       toolLogger.endCall(callId, result, true);
       return result;
     } catch (error: any) {
-      const errorMsg = error.message || String(error);
+      const errorMsg = error?.message || String(error);
       toolLogger.endCall(callId, errorMsg, false, errorMsg);
       throw error;
     }

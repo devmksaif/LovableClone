@@ -5,6 +5,7 @@ import { getSessionMemory } from '../../../lib/utils/memory-db';
 import { getOrCreateSession, addConversation } from '../../../lib/db/database';
 import { HumanMessage } from '@langchain/core/messages';
 import * as path from 'path';
+import { embedProject } from '../../../lib/utils/project-embeddings';
 
 // Store for ongoing streams
 const activeStreams = new Map();
@@ -81,6 +82,16 @@ export async function POST(request: NextRequest) {
           // Track file operations in memory
           for (const filename of Object.keys(result.generatedFiles)) {
             await memory.addFileOperation('created', path.join(projectFolder, filename));
+          }
+
+          // Embed the project files in ChromaDB for future semantic search
+          try {
+            console.log('📥 Embedding project files in ChromaDB...');
+            await embedProject(sessionId || 'default', projectFolder);
+            console.log('✅ Project files embedded successfully');
+          } catch (embedError) {
+            console.warn('⚠️ Failed to embed project files:', embedError);
+            // Don't fail the request if embedding fails
           }
         }
 
