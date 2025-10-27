@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Session model - tracks user chat sessions
+model Session {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId     String   @unique
+  projectFolder String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  conversations Conversation[]
+  projects      Project[]
+  
+  @@map("sessions")
+}
+
+// Conversation model - stores chat messages
+model Conversation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String   @db.ObjectId
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  role      String   // 'user' or 'assistant'
+  content   String
+  timestamp DateTime @default(now())
+  
+  @@map("conversations")
+  @@index([sessionId])
+}
+
+// Project model - tracks generated projects and files
+model Project {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId     String   @db.ObjectId
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  projectFolder String
+  userRequest   String
+  plan          String[] // Array of plan steps
+  isComplete    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  files         ProjectFile[]
+  
+  @@map("projects")
+  @@index([sessionId])
+}
+
+// ProjectFile model - stores individual generated files
+model ProjectFile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId String   @db.ObjectId
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  filename  String
+  content   String
+  operation String   // 'created', 'modified', 'deleted'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("project_files")
+  @@index([projectId])
+}
+
+// FileOperation model - tracks file operations for memory
+model FileOperation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String
+  operation String   // 'created', 'modified', 'deleted', 'read'
+  filePath  String
+  timestamp DateTime @default(now())
+  
+  @@map("file_operations")
+  @@index([sessionId])
+}

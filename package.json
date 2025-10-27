@@ -1,0 +1,51 @@
+{
+  "name": "openrouter-langgraph",
+  "version": "1.0.0",
+  "description": "Next.js app with LangGraph agent and OpenRouter AI chat interface",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [
+    "openrouter",
+    "ai",
+    "inference",
+    "langgraph",
+    "nextjs",
+    "chat"
+  ],
+  "author": "",
+  "license": "MIT",
+  "packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9ebcd29b97e",
+  "dependencies": {
+    "@chroma-core/default-embed": "^0.1.8",
+    "@google/generative-ai": "^0.24.1",
+    "@langchain/community": "^1.0.0",
+    "@langchain/core": "^1.0.1",
+    "@langchain/google-genai": "^1.0.0",
+    "@langchain/groq": "^1.0.0",
+    "@langchain/langgraph": "^1.0.1",
+    "@langchain/openai": "^1.0.0",
+    "@prisma/client": "^6.18.0",
+    "chromadb": "^3.0.17",
+    "dotenv": "^17.2.3",
+    "langchain": "^1.0.1",
+    "mememo": "^0.1.0",
+    "next": "14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "latest",
+    "postcss": "^8.4.39",
+    "prisma": "^6.18.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.0.0"
+  }
+}
