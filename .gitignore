@@ -1,7 +1,16 @@
 node_modules
 # Keep environment variables out of version control
 .env
-
+.next
 /generated/prisma
 sandboxes
 Pythonagents/fastapi-mcp-agent/venv
+
+# Ignore log files and large files
+logs.txt
+chat-logs.txt
+*.log
+*.DS_Store
+
+# Ignore files larger than 10MB (requires manual enforcement, but add a comment)
+# [MANUAL] Do not commit files larger than 10MB. Use Git LFS for large binaries if needed.
