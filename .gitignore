@@ -5,7 +5,9 @@ node_modules
 /generated/prisma
 sandboxes
 Pythonagents/fastapi-mcp-agent/venv
-
+Pythonagents/fastapi-mcp-agent/__pycache__
+Pythonagents/fastapi-mcp-agent/*.pyc
+Pythonagents/fastapi-mcp-agent/.env
 # Ignore log files and large files
 logs.txt
 chat-logs.txt
