@@ -3,6 +3,7 @@ node_modules
 .env
 .next
 /generated/prisma
+chroma_databases
 Pythonagents/fastapi-mcp-agent/chroma_db
 Pythonagents/fastapi-mcp-agent/chroma_memory_db
 Pythonagents/fastapi-mcp-agent/chroma_auto_index
