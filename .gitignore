@@ -4,14 +4,14 @@ node_modules
 .next
 /generated/prisma
 chroma_databases
-Pythonagents/fastapi-mcp-agent/chroma_db
-Pythonagents/fastapi-mcp-agent/chroma_memory_db
-Pythonagents/fastapi-mcp-agent/chroma_auto_index
+/Pythonagents/fastapi-mcp-agent/chroma_db
+/Pythonagents/fastapi-mcp-agent/chroma_memory_db
+/Pythonagents/fastapi-mcp-agent/chroma_auto_index
 sandboxes
-Pythonagents/fastapi-mcp-agent/venv
-Pythonagents/fastapi-mcp-agent/__pycache__
-Pythonagents/fastapi-mcp-agent/*.pyc
-Pythonagents/fastapi-mcp-agent/.env
+/Pythonagents/fastapi-mcp-agent/venv
+/Pythonagents/fastapi-mcp-agent/__pycache__
+/Pythonagents/fastapi-mcp-agent/*.pyc
+/Pythonagents/fastapi-mcp-agent/.env
 # Ignore log files and large files
 logs.txt
 chat-logs.txt
