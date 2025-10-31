@@ -9,6 +9,8 @@ import json
 from app.database import get_or_create_session, Sandbox
 from app.sandbox_service import sandbox_service, SandboxEnvironment, SandboxConfig
 from app.websocket_utils import broadcast_sandbox_update, active_websocket_connections
+from app.agents.code_intelligence import CodeIntelligenceService
+from app.agents.symbol_index import get_symbol_index_service
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +164,22 @@ async def create_sandbox(request: SandboxCreateRequest):
         await sandbox.insert()
 
         logger.info(f"Created sandbox {environment.id}")
+
+        # Index project files for code intelligence
+        try:
+            code_intel = CodeIntelligenceService()
+            await code_intel.index_project_files(environment.project_path)
+            logger.info(f"Indexed project files for sandbox {environment.id}")
+        except Exception as e:
+            logger.warning(f"Failed to index project files for sandbox {environment.id}: {e}")
+
+        # Build symbol index for fast lookups
+        try:
+            symbol_index = get_symbol_index_service(environment.project_path)
+            index_time = await symbol_index.build_index()
+            logger.info(f"Built symbol index for sandbox {environment.id} in {index_time:.2f}s")
+        except Exception as e:
+            logger.warning(f"Failed to build symbol index for sandbox {environment.id}: {e}")
 
         # Extract enhanced metadata for better agent context
         enhanced_metadata = extract_enhanced_metadata(sandbox)

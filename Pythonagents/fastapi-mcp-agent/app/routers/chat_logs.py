@@ -40,11 +40,23 @@ async def index_message_to_chroma(message: str, role: str, session_id: str, mess
 async def add_chat_log(data: Dict[str, Any]):
     """Add a chat log entry."""
     try:
-        session_id = data.get("sessionId", "")
+        # Handle both conversation format (sessionId, role, content) and logging format (sessionId, eventType, message)
+        session_id = data.get("sessionId") or data.get("session_id", "")
         role = data.get("role", "")
-        content = data.get("content", "")
+        content = data.get("content") or data.get("message", "")
+
+        # For logging format, map eventType to role
+        if not role and "eventType" in data:
+            event_type = data.get("eventType", "")
+            if event_type in ["user_message", "assistant_response"]:
+                role = event_type.split("_")[0]  # "user" or "assistant"
+            elif event_type == "system_event":
+                role = "system"
+            else:
+                role = "system"  # Default for other event types
 
         if not session_id or not role or not content:
+            logger.error(f"Missing required fields. session_id: {session_id}, role: {role}, content: {content}")
             raise HTTPException(status_code=400, detail="sessionId, role, and content are required")
 
         await add_conversation(session_id, role, content)

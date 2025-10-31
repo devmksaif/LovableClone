@@ -20,17 +20,13 @@ def test_chat_endpoint_invalid_request():
     assert response.status_code == 422  # Validation error
 
 @pytest.mark.asyncio
-async def test_mcp_integration_initialization():
-    # Test that MCP integration can be initialized
-    from app.agents.mcp_integration import mcp_integration
+async def test_database_initialization():
+    # Test that database can be initialized
+    from app.database import init_database
 
-    # This should not raise an exception even without servers
-    assert mcp_integration is not None
-    assert not mcp_integration.initialized
-
-    # Try to initialize (may fail without actual servers, but shouldn't crash)
+    # This should not raise an exception
     try:
-        await mcp_integration.initialize_mcp_clients()
+        await init_database()
         # If it succeeds, great; if not, that's also acceptable for testing
     except Exception:
-        pass  # Expected in test environment without MCP servers
+        pass  # Expected in test environment

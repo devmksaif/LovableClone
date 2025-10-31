@@ -8,7 +8,7 @@ to prevent path traversal attacks and unauthorized file system access.
 import os
 import logging
 from pathlib import Path
-from typing import List, Optional, Set, Union, Tuple
+from typing import List, Optional, Set, Union, Tuple, Dict
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -65,6 +65,7 @@ class PathSafetyValidator:
                 "index.html"
             },
             AccessLevel.READ_ONLY: {
+                ".",
                 "node_modules",
                 ".next",
                 "dist",
@@ -72,8 +73,25 @@ class PathSafetyValidator:
                 "coverage",
                 "__pycache__",
                 ".pytest_cache",
-                "pnpm-lock.yaml"
+                "pnpm-lock.yaml",
+                # Common development directories for reading
+                "src",
+                "app", 
+                "components",
+                "lib",
+                "pages",
+                "public",
+                "docs",
+                "tests",
+                "assets",
+                "cache",
+                "logs",
+                "temp",
+                "chroma_db"
             },
+          
+          
+          
             AccessLevel.SANDBOX_ONLY: {
                 # Allow access to any sandbox directory
                 "*"
@@ -94,7 +112,8 @@ class PathSafetyValidator:
             "password",
             "secret",
             "token",
-            ".git",
+            ".git/",
+            ".git\\",
             ".ssh",
             "node_modules/.bin",
             "__pycache__",
@@ -108,7 +127,7 @@ class PathSafetyValidator:
             ".exe", ".bat", ".cmd", ".com", ".scr", ".pif",
             ".sh", ".bash", ".zsh", ".fish",  # Allow but log
             ".ps1", ".psm1", ".psd1",
-            ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh"
+            ".vbs", ".vbe", ".jse", ".wsf", ".wsh"
         }
         
         # System directories that should never be accessible
@@ -237,6 +256,10 @@ class PathSafetyValidator:
             relative_path = full_path.relative_to(self.project_root)
             path_parts = relative_path.parts
             
+            # Handle the case where path is the current directory
+            if str(relative_path) == '.':
+                path_parts = ('.',)
+            
             if not path_parts:
                 return False
             
@@ -360,23 +383,34 @@ class PathSafetyValidator:
 # Global instance - will be initialized when needed
 _path_validator: Optional[PathSafetyValidator] = None
 
+# Global instance cache - keyed by project root
+_path_validators: Dict[str, PathSafetyValidator] = {}
+
 def get_path_validator(project_root: Optional[str] = None) -> PathSafetyValidator:
     """
-    Get the global path validator instance.
+    Get a path validator instance for the specified project root.
     
     Args:
-        project_root: Project root directory (only used for first initialization)
+        project_root: Project root directory. If None, uses default.
         
     Returns:
-        PathSafetyValidator instance
+        PathSafetyValidator instance for the specified project root
     """
-    global _path_validator
+    global _path_validators
     
-    if _path_validator is None:
-        if project_root is None:
-            # Use the sandboxes directory as the default project root
-            project_root = os.environ.get('PROJECT_ROOT', '/Users/Apple/Desktop/NextLovable/sandboxes')
-        _path_validator = PathSafetyValidator(project_root)
+    if project_root is None:
+        # Use the sandboxes directory as the default project root
+        project_root = os.environ.get('PROJECT_ROOT', '/Users/Apple/Desktop/NextLovable/sandboxes')
+    
+    # Resolve the project root path
+    resolved_root = str(Path(project_root).resolve())
+    
+    # Return cached validator or create new one
+    if resolved_root not in _path_validators:
+        _path_validators[resolved_root] = PathSafetyValidator(resolved_root)
+        logger.info(f"Created new path validator for project root: {resolved_root}")
+    
+    return _path_validators[resolved_root]
     
     return _path_validator
 

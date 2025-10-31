@@ -42,4 +42,10 @@ google-generativeai>=0.8.0
 pathlib2
 typing-extensions
 asyncio
+
+# AST-based code analysis (tree-sitter)
+tree-sitter>=0.20.1
+tree-sitter-python
+tree-sitter-javascript
+tree-sitter-typescript
  

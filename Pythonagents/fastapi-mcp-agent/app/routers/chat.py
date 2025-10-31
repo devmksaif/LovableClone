@@ -8,7 +8,6 @@ import asyncio
 from datetime import datetime
 from app.agents.agent_graphs import create_agent_instances, create_agent_nodes_with_instances
 from app.database import get_or_create_session, add_conversation
-from app.agents.mcp_integration import process_chat_request
 from app.websocket_utils import register_chat_connection, unregister_chat_connection
 from app.cache.redis_cache import redis_cache
 from app.utils.rate_limiter import RateLimiter
@@ -20,38 +19,117 @@ try:
     CHROMA_INTEGRATION_AVAILABLE = True
 except ImportError:
     CHROMA_INTEGRATION_AVAILABLE = False
- 
+
 logger = logging.getLogger(__name__)
 
-def _is_react_vue_request(user_request: str, sandbox_context: Dict[str, Any]) -> bool:
-    """Detect if the request is for React/Vue development."""
-    # Check user request for React/Vue keywords
-    react_vue_keywords = [
-        'react', 'vue', 'jsx', 'tsx', 'component', 'hook', 'state', 'props',
-        'useState', 'useEffect', 'useContext', 'createApp', 'defineComponent',
-        'frontend', 'ui', 'user interface', 'component library'
-    ]
-    
-    user_request_lower = user_request.lower()
-    has_react_vue_keywords = any(keyword in user_request_lower for keyword in react_vue_keywords)
-    
-    # Check sandbox context for React/Vue files
-    has_react_vue_files = False
-    if sandbox_context and 'files' in sandbox_context:
-        files = sandbox_context['files']
-        react_vue_extensions = ['.jsx', '.tsx', '.vue', '.js', '.ts']
-        has_react_vue_files = any(
-            any(file.get('name', '').endswith(ext) for ext in react_vue_extensions)
-            for file in files
-        )
-    
-    return has_react_vue_keywords or has_react_vue_files
+def _sanitize_sandbox_context(sandbox_context: Dict[str, Any]) -> Dict[str, Any]:
+    """Sanitize sandbox context to remove excessive data before sending to model."""
+    if not sandbox_context:
+        return {}
+
+    # Create a filtered version with only essential information
+    sanitized = {}
+
+    # Keep basic sandbox info
+    if 'id' in sandbox_context:
+        sanitized['id'] = sandbox_context['id']
+    if 'type' in sandbox_context:
+        sanitized['type'] = sandbox_context['type']
+    if 'name' in sandbox_context:
+        sanitized['name'] = sandbox_context['name']
+    if 'status' in sandbox_context:
+        sanitized['status'] = sandbox_context['status']
+
+    # Keep essential metadata but filter out massive content
+    if 'metadata' in sandbox_context and isinstance(sandbox_context['metadata'], dict):
+        metadata = sandbox_context['metadata']
+        sanitized_metadata = {}
+
+        # Keep project type and frameworks
+        if 'project_type' in metadata:
+            sanitized_metadata['project_type'] = metadata['project_type']
+        if 'frameworks' in metadata:
+            sanitized_metadata['frameworks'] = metadata['frameworks']
+        if 'build_tools' in metadata:
+            sanitized_metadata['build_tools'] = metadata['build_tools']
+        if 'entry_points' in metadata:
+            sanitized_metadata['entry_points'] = metadata['entry_points']
+
+        # Keep basic file statistics but not detailed file trees
+        if 'file_statistics' in metadata and isinstance(metadata['file_statistics'], dict):
+            file_stats = metadata['file_statistics']
+            sanitized_metadata['file_statistics'] = {
+                'total_files': file_stats.get('total_files', 0),
+                'file_categories': file_stats.get('file_categories', {})
+            }
+
+        # Keep basic size info but not detailed analysis
+        if 'size_analysis' in metadata and isinstance(metadata['size_analysis'], dict):
+            size_analysis = metadata['size_analysis']
+            sanitized_metadata['size_analysis'] = {
+                'total_size_human': size_analysis.get('total_size_human', '0 B')
+            }
+
+        # Keep dependencies but filter out massive lock files
+        if 'dependencies' in metadata and isinstance(metadata['dependencies'], dict):
+            deps = metadata['dependencies']
+            sanitized_deps = {}
+
+            # Keep package manager info
+            if 'package_managers' in deps:
+                sanitized_deps['package_managers'] = deps['package_managers']
+
+            # Keep npm dependencies but truncate if too large
+            if 'npm_dependencies' in deps and isinstance(deps['npm_dependencies'], dict):
+                npm_deps = deps['npm_dependencies']
+                sanitized_npm_deps = {}
+
+                # Keep basic dependency info but not full lock file content
+                if 'dependencies' in npm_deps:
+                    deps_dict = npm_deps['dependencies']
+                    if isinstance(deps_dict, dict):
+                        # Only keep first few dependencies to avoid bloat
+                        sanitized_npm_deps['dependencies'] = dict(list(deps_dict.items())[:10])
+                        if len(deps_dict) > 10:
+                            sanitized_npm_deps['dependencies_truncated'] = True
+
+                if 'scripts' in npm_deps:
+                    sanitized_npm_deps['scripts'] = npm_deps['scripts']
+
+                sanitized_deps['npm_dependencies'] = sanitized_npm_deps
+
+            sanitized_metadata['dependencies'] = sanitized_deps
+
+        sanitized['metadata'] = sanitized_metadata
+
+    # Keep current file info if present
+    if 'currentFile' in sandbox_context:
+        sanitized['currentFile'] = sandbox_context['currentFile']
+
+    # Keep file content only if it's small (less than 10KB)
+    if 'fileContent' in sandbox_context:
+        content = sandbox_context['fileContent']
+        if isinstance(content, str) and len(content) < 10000:  # 10KB limit
+            sanitized['fileContent'] = content
+        else:
+            sanitized['fileContent'] = f"[Content too large to include: {len(content) if isinstance(content, str) else 'unknown'} characters]"
+
+    return sanitized
 
 async def _execute_copilot_workflow(copilot_graph, initial_data: Dict[str, Any], session_id: str, websocket):
     """Execute the Copilot-style agent graph workflow."""
     from app.agents.agent_graphs import AgentState
+    from app.agents.utils import get_project_folder
     
     logger.info(f"🎯 Executing Copilot workflow for session: {session_id}")
+    
+    # Get the project folder for this session
+    try:
+        project_folder = get_project_folder()
+        logger.info(f"🏗️ Using project folder for Copilot workflow: {project_folder}")
+    except Exception as e:
+        logger.warning(f"Failed to get project folder, using fallback: {e}")
+        project_folder = "/Users/Apple/Desktop/NextLovable"
     
     # Create initial state
     state = AgentState(
@@ -62,7 +140,8 @@ async def _execute_copilot_workflow(copilot_graph, initial_data: Dict[str, Any],
         sandbox_id=initial_data.get("sandbox_id"),
         available_tools=initial_data.get("available_tools", []),
         tool_results=initial_data.get("tool_results", []),
-        api_keys=initial_data.get("api_keys", {})
+        api_keys=initial_data.get("api_keys", {}),
+        project_folder=project_folder  # Set the project folder
     )
     
     # Send initial progress update
@@ -244,7 +323,7 @@ async def websocket_chat_streaming(websocket: WebSocket):
         # Process the chat request from the initial message
         user_request = initial_data.get('user_request')
         model = initial_data.get('model', 'gpt-4')
-        sandbox_context = initial_data.get('sandbox_context', {})
+        sandbox_context = _sanitize_sandbox_context(initial_data.get('sandbox_context', {}))
         sandbox_id = initial_data.get('sandbox_id')
         api_keys = initial_data.get('api_keys', {})
 
@@ -266,10 +345,14 @@ async def websocket_chat_streaming(websocket: WebSocket):
         })
 
         # Ensure session exists in database
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
         sandboxes_dir = os.path.join(project_root, "sandboxes")
         project_path = os.path.join(sandboxes_dir, sandbox_id) if sandbox_id else sandboxes_dir
         await get_or_create_session(session_id, project_path)
+
+        # Set session memory for proper project folder resolution
+        from app.agents.utils import set_session_memory
+        await set_session_memory(session_id)
 
         # Store user message
         await add_conversation(session_id, "user", user_request)
@@ -277,31 +360,22 @@ async def websocket_chat_streaming(websocket: WebSocket):
         # Index user message to ChromaDB for semantic search
         await index_message_to_chroma(user_request, "user", session_id)
 
-        # Process the chat request using MCP integration
+        # Process the chat request directly
         try:
-            mcp_result = await process_chat_request(
-                user_request,
-                session_id,
-                model,
-                sandbox_context,
-                sandbox_id
-            )
+            mcp_result = {
+                "model": model,
+                "user_request": user_request,
+                "session_id": session_id,
+                "sandbox_context": sandbox_context,
+                "sandbox_id": sandbox_id,
+                "api_keys": api_keys or {},
+                "available_tools": {},  # Default empty tools dict
+                "tool_results": []  # Default empty tool results
+            }
             
-            # Add API keys to the result for agent graph creation
-            if api_keys:
-                mcp_result["api_keys"] = api_keys
-                logger.info(f"🔑 Passing API keys to WebSocket agent graph: {list(api_keys.keys())}")
-            
-            logger.info(f"MCP result: {mcp_result}")
+            logger.info(f"Chat result: {mcp_result}")
         except Exception as e:
-            # Log full traceback to help diagnose TaskGroup / ExceptionGroup issues
-            logger.exception("Failed to process chat request")
-            try:
-                if hasattr(e, 'exceptions'):
-                    for i, sub in enumerate(e.exceptions):
-                        logger.exception(f"Sub-exception {i} during process_chat_request: {sub}")
-            except Exception:
-                pass
+            logger.exception("Failed to process request")
             await websocket.send_json({
                 "type": "error",
                 "data": {"message": f"Failed to process request: {str(e)}"},
@@ -325,24 +399,14 @@ async def websocket_chat_streaming(websocket: WebSocket):
                 api_keys=mcp_result.get("api_keys", {})
             )
             
-            # Detect if this is a React/Vue development request
-            is_react_vue_request = _is_react_vue_request(user_request, sandbox_context)
-            
-            if is_react_vue_request and agent_instances.get('copilot_agent_graph'):
-                # Use Copilot-style workflow for React/Vue development
-                logger.info("🎯 Using Copilot-style workflow for React/Vue development")
-                final_result = await _execute_copilot_workflow(
-                    agent_instances['copilot_agent_graph'], mcp_result, session_id, websocket
-                )
-            else:
-                # Use traditional agent workflow
-                logger.info("🔄 Using traditional agent workflow")
-                agent_nodes = await create_agent_nodes_with_instances(agent_instances, websocket)
-                logger.info(f"Created agent nodes: {[node.name for node in agent_nodes]}")
-                
-                final_result = await execute_agent_graph_with_websocket_streaming(
-                    agent_nodes, mcp_result, session_id, websocket
-                )
+            # Always use traditional agent workflow for iterative code generation
+            logger.info("🔄 Using traditional agent workflow")
+            agent_nodes = await create_agent_nodes_with_instances(agent_instances, websocket)
+            logger.info(f"Created agent nodes: {[node.name for node in agent_nodes]}")
+
+            final_result = await execute_agent_graph_with_websocket_streaming(
+                agent_nodes, mcp_result, session_id, websocket
+            )
             logger.info(f"Final result: {final_result}")
         except Exception as e:
             # Log full traceback for the graph execution error (could be ExceptionGroup from TaskGroup)
@@ -372,7 +436,23 @@ async def websocket_chat_streaming(websocket: WebSocket):
             })
 
             # Store AI response
-            ai_response = final_result.get('generated_code', '') or final_result.get('review_feedback', 'Task completed')
+            ai_response = final_result.get('generated_code', '')
+            if not ai_response:
+                review_feedback = final_result.get('review_feedback', {})
+                if isinstance(review_feedback, dict):
+                    # Format review feedback as readable text
+                    ai_response = f"Code Review Results:\n\n"
+                    if review_feedback.get('overall_feedback'):
+                        ai_response += f"Overall Feedback: {review_feedback['overall_feedback']}\n\n"
+                    if review_feedback.get('issues_found'):
+                        ai_response += f"Issues Found: {', '.join(review_feedback['issues_found'])}\n\n"
+                    if review_feedback.get('suggested_improvements'):
+                        ai_response += f"Suggested Improvements: {', '.join(review_feedback['suggested_improvements'])}\n\n"
+                    if review_feedback.get('security_warnings'):
+                        ai_response += f"Security Warnings: {', '.join(review_feedback['security_warnings'])}\n\n"
+                else:
+                    ai_response = str(review_feedback) if review_feedback else 'Task completed'
+            
             await add_conversation(session_id, "assistant", ai_response)
             
             # Index assistant response to ChromaDB for semantic search
@@ -431,10 +511,19 @@ async def websocket_chat_streaming(websocket: WebSocket):
 async def execute_agent_graph_with_websocket_streaming(nodes, initial_data: Dict[str, Any], session_id: str, websocket: WebSocket):
     """Execute agent graph with WebSocket streaming updates using LangGraph streaming."""
     from app.agents.agent_graphs import AgentState, AgentGraph
+    from app.agents.utils import get_project_folder
     
     logger.info(f"Starting WebSocket streaming execution for session: {initial_data['session_id']}")
     api_keys = initial_data.get('api_keys', {})
     logger.info(f"API keys provided for session {session_id}: {list(api_keys.keys())}")
+    
+    # Get the project folder for this session
+    try:
+        project_folder = get_project_folder()
+        logger.info(f"🏗️ Using project folder for traditional workflow: {project_folder}")
+    except Exception as e:
+        logger.warning(f"Failed to get project folder, using fallback: {e}")
+        project_folder = "/Users/Apple/Desktop/NextLovable"
     
     # Create initial state
     state = AgentState(
@@ -445,7 +534,8 @@ async def execute_agent_graph_with_websocket_streaming(nodes, initial_data: Dict
         sandbox_id=initial_data["sandbox_id"],
         available_tools=initial_data["available_tools"],
         tool_results=initial_data["tool_results"],
-        api_keys=api_keys
+        api_keys=api_keys,
+        project_folder=project_folder  # Set the project folder
     )
 
     # Create the agent graph

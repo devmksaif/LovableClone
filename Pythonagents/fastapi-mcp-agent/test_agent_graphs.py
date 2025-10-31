@@ -12,17 +12,6 @@ from typing import Dict, Any
 # Add the app directory to the path
 sys.path.insert(0, '/Users/Apple/Desktop/NextLovable/Pythonagents/fastapi-mcp-agent')
 
-# Mock the MCP integration to avoid import errors
-import sys
-from unittest.mock import MagicMock
-
-# Create a mock mcp_integration module
-mock_mcp_integration = MagicMock()
-mock_mcp_integration.MCPIntegration = MagicMock
-mock_mcp_integration.mcp_integration = MagicMock()
-
-sys.modules['app.agents.mcp_integration'] = mock_mcp_integration
-
 # Now import the agent graphs
 from app.agents.agent_graphs import AgentState, AgentGraph, create_agent_graph, execute_agent_graph
 

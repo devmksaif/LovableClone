@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.routers import chat, sandbox, models, execute, conversations, chat_logs, sessions, vector, preview, project_context
-from app.agents.mcp_integration import initialize_mcp_clients
 from app.database import init_database
 
 # Configure logging
@@ -32,14 +31,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         # Continue startup even if database fails
-
-    # Initialize MCP clients and external tools
-    try:
-        await initialize_mcp_clients()
-        logger.info("MCP clients initialized successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize MCP clients: {e}")
-        # Continue startup even if MCP fails
 
     yield
 

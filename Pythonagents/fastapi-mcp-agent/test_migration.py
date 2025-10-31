@@ -8,14 +8,6 @@ import sys
 import os
 sys.path.insert(0, '/Users/Apple/Desktop/NextLovable/Pythonagents/fastapi-mcp-agent')
 
-# Mock the MCP integration to avoid import errors
-from unittest.mock import MagicMock
-
-mock_mcp_integration = MagicMock()
-mock_mcp_integration.MCPIntegration = MagicMock
-mock_mcp_integration.mcp_integration = MagicMock()
-sys.modules['app.agents.mcp_integration'] = mock_mcp_integration
-
 def test_imports():
     """Test that all modules can be imported."""
     print("Testing Python agent system imports...")

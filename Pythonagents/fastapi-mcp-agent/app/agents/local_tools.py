@@ -50,6 +50,38 @@ try:
 except ImportError:
     CHROMA_CONFIG_AVAILABLE = False
 
+# Code intelligence imports
+try:
+    from .code_intelligence import (
+        analyze_code_file,
+        find_symbol_references,
+        get_symbol_info,
+        index_project_files,
+        CODE_INTELLIGENCE_TOOLS
+    )
+    CODE_INTELLIGENCE_AVAILABLE = True
+except ImportError:
+    CODE_INTELLIGENCE_AVAILABLE = False
+    analyze_code_file = None
+    find_symbol_references = None
+    get_symbol_info = None
+    index_project_files = None
+    CODE_INTELLIGENCE_TOOLS = []
+
+# Symbol index imports
+try:
+    from .symbol_index import (
+        find_symbol_definition,
+        suggest_imports,
+        SYMBOL_INDEX_TOOLS
+    )
+    SYMBOL_INDEX_AVAILABLE = True
+except ImportError:
+    SYMBOL_INDEX_AVAILABLE = False
+    find_symbol_definition = None
+    suggest_imports = None
+    SYMBOL_INDEX_TOOLS = []
+
 logger = logging.getLogger(__name__)
 
 # ChromaDB Vector Store for semantic search
@@ -1483,12 +1515,12 @@ def semantic_search_codebase(query: str, max_results: int = 5) -> str:
             file_path = metadata.get('file_path', 'Unknown file')
             line_start = metadata.get('line_start', 'Unknown line')
             score = result.get('score', 0)
-            content = result.get('content', '').strip()
+            content = result.get('content', '').strip();
             
-            output += f"{i}. {file_path}:{line_start} (similarity: {score:.3f})\n"
-            output += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n\n"
+            output += f"{i}. {file_path}:{line_start} (similarity: {score:.3f})\n";
+            output += f"   {content[:200]}{'...' if len(content) > 200 else ''}\n\n";
         
-        return output
+        return output;
     except Exception as e:
         return f"Error in semantic search: {str(e)}"
 
@@ -1687,7 +1719,8 @@ def print_directory_tree(directory: str = ".", max_depth: int = 3, show_files: b
             return tree_str
 
         tree_output = f"{dir_path.name}/\n"
-        tree_output += build_tree(dir_path, "", 0)
+        tree_output += build_tree(dir_path)
+
         return tree_output
 
     except Exception as e:
@@ -1976,6 +2009,7 @@ def upload_codebase_to_chroma(
     Args:
         root_directory: Root directory to start indexing from (default: current directory)
         file_extensions: Comma-separated list of file extensions to include
+       
         chunk_size: Size of each text chunk in characters (default: 1000)
         overlap_size: Overlap between chunks in characters (default: 200)
         collection_name: Name of the ChromaDB collection (default: 'files')
@@ -2439,6 +2473,324 @@ def suggest_frontend_improvements(file_path: str) -> str:
 
 """ + "\n".join(f"- {suggestion}" for suggestion in suggestions)
 
+# Diff-based code modification tools for surgical editing
+
+import difflib
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import hashlib
+
+# Change history tracking for rollback functionality
+CHANGE_HISTORY = {}
+SESSION_CHANGES = {}
+
+def _get_file_hash(content: str) -> str:
+    """Generate MD5 hash of file content for change tracking."""
+    return hashlib.md5(content.encode('utf-8')).hexdigest()
+
+def _store_change(session_id: str, file_path: str, original_content: str, new_content: str, description: str):
+    """Store a change in the session history for potential rollback."""
+    if session_id not in SESSION_CHANGES:
+        SESSION_CHANGES[session_id] = []
+
+    change_record = {
+        'timestamp': datetime.now().isoformat(),
+        'file_path': file_path,
+        'original_hash': _get_file_hash(original_content),
+        'new_hash': _get_file_hash(new_content),
+        'original_content': original_content,
+        'new_content': new_content,
+        'description': description
+    }
+
+    SESSION_CHANGES[session_id].append(change_record)
+
+    # Keep only last 50 changes per session to prevent memory issues
+    if len(SESSION_CHANGES[session_id]) > 50:
+        SESSION_CHANGES[session_id] = SESSION_CHANGES[session_id][-50:]
+
+@tool
+def apply_code_edit(file_path: str, edits: List[Dict[str, Any]], session_id: Optional[str] = None, description: str = "Code edit") -> str:
+    """
+    Apply surgical code edits using diff-based modifications instead of full rewrites.
+
+    This tool allows for precise, minimal changes to code files by specifying exact
+    text replacements with context. Multiple edits can be applied in a single operation.
+
+    Args:
+        file_path: Path to the file to edit
+        edits: List of edit operations, each containing:
+            - old_string: Exact text to replace (with sufficient context)
+            - new_string: Replacement text
+            - Optional context_lines: Number of context lines (default: 3)
+        session_id: Optional session ID for change tracking and rollback
+        description: Description of the change for history tracking
+
+    Returns:
+        Success message with change summary or error details
+
+    Example:
+        edits = [
+            {
+                "old_string": "def old_function():\n    return 'old'",
+                "new_string": "def new_function():\n    return 'new'"
+            }
+        ]
+        apply_code_edit("example.py", edits, "session_123", "Rename function")
+    """
+    try:
+        # Read the current file content
+        with open(file_path, 'r', encoding='utf-8') as f:
+            original_content = f.read()
+
+        current_content = original_content
+        applied_edits = []
+
+        for edit in edits:
+            old_string = edit['old_string']
+            new_string = edit['new_string']
+            context_lines = edit.get('context_lines', 3)
+
+            # Find all occurrences and apply replacements
+            if old_string in current_content:
+                # Store the change if session tracking is enabled
+                if session_id:
+                    _store_change(session_id, file_path, current_content, current_content.replace(old_string, new_string, 1), description)
+
+                current_content = current_content.replace(old_string, new_string, 1)
+                applied_edits.append(f"✓ Replaced: {old_string[:50]}... -> {new_string[:50]}...")
+            else:
+                return f"❌ Error: Could not find exact text to replace in {file_path}:\n{old_string}"
+
+        # Write the modified content back
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(current_content)
+
+        return f"✅ Successfully applied {len(applied_edits)} edit(s) to {file_path}\n" + "\n".join(applied_edits)
+
+    except Exception as e:
+        return f"❌ Error applying code edits to {file_path}: {str(e)}"
+
+@tool
+def suggest_code_edit(file_path: str, improvement_type: str = "general", context_lines: int = 3) -> str:
+    """
+    Analyze code and suggest minimal, targeted improvements using diff-based modifications.
+
+    This tool examines code for common issues and suggests precise edits rather than
+    complete rewrites, focusing on maintainability, performance, and best practices.
+
+    Args:
+        file_path: Path to the file to analyze
+        improvement_type: Type of improvements to focus on:
+            - "general": General code quality improvements
+            - "performance": Performance optimizations
+            - "security": Security improvements
+            - "readability": Code readability enhancements
+        context_lines: Number of context lines to include in suggestions
+
+    Returns:
+        Analysis results with suggested edits and reasoning
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        suggestions = []
+        lines = content.split('\n')
+
+        # Analyze based on improvement type
+        if improvement_type in ["general", "readability"]:
+            # Check for long functions
+            current_function = []
+            function_start = -1
+
+            for i, line in enumerate(lines):
+                if line.strip().startswith('def ') or line.strip().startswith('async def '):
+                    if current_function and len(current_function) > 30:
+                        suggestions.append({
+                            'line': function_start,
+                            'type': 'long_function',
+                            'description': f"Function starting at line {function_start + 1} is {len(current_function)} lines long. Consider breaking it into smaller functions.",
+                            'suggested_edit': "Consider extracting helper functions or using early returns"
+                        })
+                    current_function = [line]
+                    function_start = i
+                elif current_function and (line.strip().startswith(' ') or line.strip() == ''):
+                    current_function.append(line)
+                elif current_function:
+                    if len(current_function) > 30:
+                        suggestions.append({
+                            'line': function_start,
+                            'type': 'long_function',
+                            'description': f"Function starting at line {function_start + 1} is {len(current_function)} lines long. Consider breaking it into smaller functions.",
+                            'suggested_edit': "Consider extracting helper functions or using early returns"
+                        })
+                    current_function = []
+
+            # Check for magic numbers
+            import re
+            magic_numbers = re.findall(r'\b\d{2,}\b', content)
+            if magic_numbers:
+                suggestions.append({
+                    'line': -1,
+                    'type': 'magic_numbers',
+                    'description': f"Found {len(set(magic_numbers))} potential magic numbers: {', '.join(set(magic_numbers[:5]))}",
+                    'suggested_edit': "Replace magic numbers with named constants"
+                })
+
+        if improvement_type in ["general", "performance"]:
+            # Check for inefficient list comprehensions or loops
+            if 'for ' in content and ' in ' in content:
+                loop_count = content.count('for ')
+                if loop_count > 5:
+                    suggestions.append({
+                        'line': -1,
+                        'type': 'multiple_loops',
+                        'description': f"Found {loop_count} loops that might benefit from optimization",
+                        'suggested_edit': "Consider using list comprehensions, generator expressions, or pandas operations"
+                    })
+
+        if improvement_type in ["general", "security"]:
+            # Check for potential security issues
+            if 'eval(' in content:
+                suggestions.append({
+                    'line': -1,
+                    'type': 'security_eval',
+                    'description': "Use of eval() detected - potential security risk",
+                    'suggested_edit': "Replace eval() with safer alternatives like ast.literal_eval() or custom parsers"
+                })
+
+            if 'exec(' in content:
+                suggestions.append({
+                    'line': -1,
+                    'type': 'security_exec',
+                    'description': "Use of exec() detected - potential security risk",
+                    'suggested_edit': "Avoid exec() when possible; use importlib or subprocess for dynamic code execution"
+                })
+
+        # Format suggestions
+        if not suggestions:
+            return f"✅ Code analysis complete for {file_path} - no major improvements suggested for {improvement_type} focus."
+
+        result = f"💡 Code Improvement Suggestions for {file_path} ({improvement_type})\n\n"
+        for i, suggestion in enumerate(suggestions, 1):
+            result += f"{i}. **{suggestion['type'].replace('_', ' ').title()}**\n"
+            result += f"   {suggestion['description']}\n"
+            result += f"   💡 {suggestion['suggested_edit']}\n\n"
+
+        return result
+
+    except Exception as e:
+        return f"❌ Error analyzing code in {file_path}: {str(e)}"
+
+@tool
+def preview_changes(file_path: str, edits: List[Dict[str, Any]], context_lines: int = 3) -> str:
+    """
+    Preview code changes using unified diff format before applying them.
+
+    This tool shows exactly what will change in the file without modifying it,
+    allowing for review and validation of surgical edits.
+
+    Args:
+        file_path: Path to the file to preview changes for
+        edits: List of edit operations (same format as apply_code_edit)
+        context_lines: Number of context lines to show in diff (default: 3)
+
+    Returns:
+        Unified diff showing the proposed changes
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            original_content = f.read()
+
+        current_content = original_content
+        all_changes = []
+
+        for edit in edits:
+            old_string = edit['old_string']
+            new_string = edit['new_string']
+
+            if old_string in current_content:
+                # Create a temporary modified version for diff
+                temp_content = current_content.replace(old_string, new_string, 1)
+
+                # Generate unified diff
+                diff = list(difflib.unified_diff(
+                    current_content.splitlines(keepends=True),
+                    temp_content.splitlines(keepends=True),
+                    fromfile=f'a/{file_path}',
+                    tofile=f'b/{file_path}',
+                    lineterm='',
+                    n=context_lines
+                ))
+
+                if diff:
+                    all_changes.extend(diff)
+                    all_changes.append('\n')  # Separator between edits
+
+                current_content = temp_content
+            else:
+                return f"❌ Error: Could not find exact text to replace in {file_path}:\n{old_string}"
+
+        if not all_changes:
+            return f"ℹ️ No changes detected for {file_path}"
+
+        # Format the diff output
+        diff_output = f"📋 Preview of changes for {file_path}:\n"
+        diff_output += f"{'='*60}\n"
+        diff_output += ''.join(all_changes)
+        diff_output += f"{'='*60}\n"
+        diff_output += f"\nTotal: {len(edits)} edit(s) to be applied"
+
+        return diff_output
+
+    except Exception as e:
+        return f"❌ Error generating preview for {file_path}: {str(e)}"
+
+@tool
+def rollback_changes(session_id: str, steps_back: int = 1) -> str:
+    """
+    Rollback recent changes made during a session using change history.
+
+    This tool allows reverting surgical edits to restore previous file states,
+    providing safety and experimentation capabilities.
+
+    Args:
+        session_id: Session ID to rollback changes for
+        steps_back: Number of changes to rollback (default: 1, max: 10)
+
+    Returns:
+        Summary of rolled back changes
+    """
+    if session_id not in SESSION_CHANGES:
+        return f"❌ No change history found for session {session_id}"
+
+    changes = SESSION_CHANGES[session_id]
+    if not changes:
+        return f"ℹ️ No changes to rollback for session {session_id}"
+
+    # Limit rollback steps
+    steps_back = min(steps_back, len(changes), 10)
+
+    rolled_back = []
+    for i in range(steps_back):
+        change = changes[-(i+1)]  # Get changes from most recent
+
+        try:
+            # Restore the original content
+            with open(change['file_path'], 'w', encoding='utf-8') as f:
+                f.write(change['original_content'])
+
+            rolled_back.append(f"✓ Rolled back: {change['description']} in {change['file_path']}")
+
+        except Exception as e:
+            rolled_back.append(f"❌ Failed to rollback {change['file_path']}: {str(e)}")
+
+    # Remove the rolled back changes from history
+    SESSION_CHANGES[session_id] = changes[:-steps_back]
+
+    return f"🔄 Rollback complete for session {session_id}:\n" + "\n".join(rolled_back)
+
 # Tool definitions using @tool decorator
 
 LOCAL_TOOLS = [
@@ -2477,41 +2829,8 @@ LOCAL_TOOLS = [
     generate_react_component,
     analyze_vue_component,
     suggest_frontend_improvements,
-]
-
-# Export individual tools for direct access
-__all__ = [
-    "LOCAL_TOOLS",
-    "read_file",
-    "write_file",
-    "list_dir",
-    "run_terminal_command_tool",
-    "search_files",
-    "create_directory",
-    "grep_search",
-    "replace_in_file",
-    "replace_block_in_file",
-    "move_file",
-    "replace_line",
-    "get_project_structure",
-    "search_code",
-    "validate_syntax",
-    "format_code",
-    "check_dependencies",
-    "analyze_dependencies",
-    "semantic_search_codebase",
-    "index_codebase_for_search",
-    "get_vector_store_stats",
-    "find_similar_code",
-    "print_directory_tree",
-    "generate_unit_tests",
-    "create_git_commit_message",
-    "upload_codebase_to_chroma",
-    "get_tool_usage_logs",
-    "get_file_changes",
-    "start_file_monitoring",
-    "stop_file_monitoring",
-    "get_development_dashboard",
-    "set_session_context",
-    "get_project_folder",
-]
+    apply_code_edit,
+    suggest_code_edit,
+    preview_changes,
+    rollback_changes,
+] + (CODE_INTELLIGENCE_TOOLS if CODE_INTELLIGENCE_AVAILABLE else []) + (SYMBOL_INDEX_TOOLS if SYMBOL_INDEX_AVAILABLE else [])
