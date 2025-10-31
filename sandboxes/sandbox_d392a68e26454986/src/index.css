@@ -1,0 +1,48 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Add custom styles below this line */
+
+/* Global styles */
+body {
+  background-color: #f9fafb;
+  color: #111827;
+  font-family: system-ui, sans-serif;
+}
+
+/* Enhanced focus styles */
+:is(button, input, textarea, select, a[href])
+  :focus {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for interactive elements */
+button, .btn {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Card base style */
+.card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px 0 rgba(16, 24, 40, 0.05);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Enhanced form inputs */
+input[type="text"] {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  transition: border-color 0.2s ease-in-out;
+}
+
+input[type="text"]:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+/* Add more custom styles as needed */

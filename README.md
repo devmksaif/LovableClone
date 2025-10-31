@@ -10,9 +10,11 @@ This project demonstrates a complete LangGraph-based multi-agent system with Mon
 - 🔄 **Auto-Iteration**: Automatic retry and fix cycles when code generation fails
 - 🎯 **18 Advanced Tools**: File operations, validation, optimization, and more
 - 📱 **Chat Interface**: Modern UI with project management and session persistence
+- 🐍 **Python Backend Option**: FastAPI backend with MCP (Model Context Protocol) integration
 
 ## Quick Start
 
+### Option 1: Next.js Backend (Default)
 1. **Install dependencies:**
    ```bash
    pnpm install
@@ -33,6 +35,63 @@ This project demonstrates a complete LangGraph-based multi-agent system with Mon
    ```bash
    pnpm run dev
    ```
+
+### Option 2: Python FastAPI Backend (Recommended)
+1. **Install Python dependencies:**
+   ```bash
+   cd Pythonagents/fastapi-mcp-agent
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   cd ../..
+   ```
+
+2. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env and set BACKEND_TYPE=python
+   # Add your API keys (GROQ_API_KEY, GEMINI_API_KEY, etc.)
+   ```
+
+3. **Run with Python backend:**
+   ```bash
+   pnpm run dev:python
+   ```
+   Or manually:
+   ```bash
+   # Terminal 1: Start Python backend
+   cd Pythonagents/fastapi-mcp-agent
+   source venv/bin/activate
+   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+   # Terminal 2: Start Next.js frontend
+   npm run dev
+   ```
+
+### Docker Deployment
+```bash
+# Build and run both services
+docker-compose up --build
+
+# Or run individually
+docker-compose up frontend
+docker-compose up backend
+```
+
+## API Providers
+
+The system automatically selects the best available AI provider:
+
+### Primary: Google Gemini (Recommended)
+- **Environment Variable**: `GEMINI_API_KEY`
+- **Get API Key**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+- **Advantages**: No rate limiting, high quality, cost-effective
+- **Default Model**: `gemini-1.5-pro`
+
+### Fallback: OpenRouter
+- **Environment Variable**: `OPENROUTER_API_KEY`
+- **Get API Key**: Visit [OpenRouter](https://openrouter.ai/keys)
+- **Note**: May experience rate limiting with free tier
 
 ## API Providers
 

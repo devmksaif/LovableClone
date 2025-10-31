@@ -20,6 +20,7 @@ model Session {
   
   conversations Conversation[]
   projects      Project[]
+  sandboxes     Sandbox[]
   
   @@map("sessions")
 }
@@ -83,4 +84,39 @@ model FileOperation {
   
   @@map("file_operations")
   @@index([sessionId])
+}
+
+// Sandbox model - tracks sandbox environments
+model Sandbox {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  sandboxId   String   @unique
+  sessionId   String?  @db.ObjectId // Link to chat session
+  session     Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  name        String?  // User-friendly name for the sandbox
+  type        String   // 'react', 'vue', 'vanilla'
+  status      String   @default("ready") // 'creating', 'ready', 'running', 'stopped', 'error'
+  projectPath String
+  port        Int?
+  createdAt   DateTime @default(now())
+  lastActivity DateTime @default(now())
+  metadata    Json?    // Additional metadata as JSON
+  
+  @@map("sandboxes")
+  @@index([sessionId])
+}
+
+// VectorStoreMetadata model - persists vector store collection metadata
+model VectorStoreMetadata {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId     String   // Project/sandbox identifier
+  collectionName String  // ChromaDB collection name
+  collectionType String  // 'code', 'prompts', 'structure'
+  chunkCount    Int      @default(0) // Number of chunks in collection
+  createdAt     DateTime @default(now())
+  lastUpdated   DateTime @updatedAt
+
+  @@map("vector_store_metadata")
+  @@index([projectId])
+  @@index([collectionName])
+  @@unique([projectId, collectionType])
 }

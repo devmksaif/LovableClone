@@ -4,6 +4,9 @@
   "description": "Next.js app with LangGraph agent and OpenRouter AI chat interface",
   "scripts": {
     "dev": "next dev",
+    "dev:server": "node --loader ts-node/esm server.ts",
+    "dev:socket": "cd socket-server && npm run dev",
+    "dev:python": "./run-with-python-backend.sh",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -22,21 +25,41 @@
   "dependencies": {
     "@chroma-core/default-embed": "^0.1.8",
     "@google/generative-ai": "^0.24.1",
+    "@heroicons/react": "^2.2.0",
     "@langchain/community": "^1.0.0",
     "@langchain/core": "^1.0.1",
     "@langchain/google-genai": "^1.0.0",
     "@langchain/groq": "^1.0.0",
     "@langchain/langgraph": "^1.0.1",
     "@langchain/openai": "^1.0.0",
-    "@prisma/client": "^6.18.0",
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "@modelcontextprotocol/server-filesystem": "^2025.8.21",
+    "@prisma/client": "6.18.0",
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "chromadb": "^3.0.17",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "langchain": "^1.0.1",
+    "lucide-react": "^0.548.0",
     "mememo": "^0.1.0",
     "next": "14.2.5",
+    "node-cache": "^5.1.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zod": "^3.22.4"
+    "sharp": "0.34.4",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^13.0.0",
+    "zod": "^3.22.4",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -46,6 +69,7 @@
     "postcss": "^8.4.39",
     "prisma": "^6.18.0",
     "tailwindcss": "^3.4.4",
+    "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   }
 }

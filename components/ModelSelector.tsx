@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { apiClient } from '../lib/api-client';
 
 export interface ModelOption {
   id: string;
@@ -29,6 +30,24 @@ const AVAILABLE_MODELS: ModelOption[] = [
     description: 'Optimized for speed and low latency',
     speed: 'fast',
     cost: 'low',
+    available: true,
+  },
+  {
+    id:  'groq-qwen/qwen3-32b',
+    name: 'Qwen 3.2 32B (Groq) test',
+    provider: 'groq',
+    description: 'Optimized for speed and low latency',
+    speed: 'fast',
+    cost: 'low',
+    available: true,
+  },
+  {
+    id: 'groq-openai/gpt-oss-120b',
+    name: 'GPT-4  OSS 120 B',
+    provider: 'groq',
+    description: 'openai/gpt-oss-120b',
+    speed: 'fast',
+    cost: 'free',
     available: true,
   },
   {
@@ -67,6 +86,17 @@ const AVAILABLE_MODELS: ModelOption[] = [
     cost: 'medium',
     available: true,
   },
+ 
+ 
+  {
+    id:  'groq-moonshotai/kimi-k2-instruct-0905',
+    name: 'Kimi K2 Instruct (MoonshotAI) (Groq)',
+    provider: 'groq',
+    description: 'MoonshotAI Kimi K2 Instruct model',
+    speed: 'medium',
+    cost: 'free',
+    available: true,
+  },
 ];
 
 interface ModelSelectorProps {
@@ -82,13 +112,12 @@ export default function ModelSelector({ selectedModel, onModelChange, className 
   useEffect(() => {
     const checkAvailability = async () => {
       try {
-        const response = await fetch('/api/models/available');
-        if (response.ok) {
-          const availableProviders = await response.json();
+        const result = await apiClient.get<string[]>('/api/models/available');
+        if (result.success && result.data) {
           setAvailableModels(models =>
             models.map(model => ({
               ...model,
-              available: availableProviders.includes(model.provider)
+              available: result.data!.includes(model.provider)
             }))
           );
         }
