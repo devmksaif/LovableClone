@@ -3,6 +3,7 @@ node_modules
 .env
 .next
 /generated/prisma
+Pythonagents/fastapi-mcp-agent/chroma_db
 sandboxes
 Pythonagents/fastapi-mcp-agent/venv
 Pythonagents/fastapi-mcp-agent/__pycache__
