@@ -1,0 +1,10 @@
+# Ignore ChromaDB SQLite files and sensitive DB folders
+chroma_auto_index/
+chroma_db/
+chroma_memory_db/
+*.sqlite3
+# Ignore Python cache and test cache
+__pycache__/
+.pytest_cache/
+# Ignore environment files
+.env
